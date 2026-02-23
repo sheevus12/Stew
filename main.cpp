@@ -12,32 +12,83 @@ struct Order {
   uint32_t quantity;
   bool is_buy;
 };
+struct Trade {
+    uint64_t buyer_id;
+    uint64_t seller_id;
+    double match_price;
+    uint32_t quantity;
+};
 
+
+// we need a current bid price and a current ask price to constantly match with different orders
+// so get order should have atleast 4 elements 1. get both sides of prices 2. match the elements 3. conditions for when user
+// decides if they want to buy or sell and 3. parse it into a orderbook to record the transaction
 class LimitOrderBook {
 private:
+    // storing orders in maps
+    // Sell orders aka Asks: Key is price (Ascending), Value is quantity
+    map<double, uint32_t> asks; 
+    // Buy orders aka Bids: Key is price (Descending), Value is quantity
+    map<double, uint32_t, greater<double>> bids; 
+
+public:
+    void processOrder(Order od) {
+        if (od.is_buy) {
+            while (od.quantity > 0 && !asks.empty() && od.price >= asks.begin()->first) {
+                auto best_ask = asks.begin();
+                uint32_t trade_qty = min(od.quantity, best_ask->second);
+                
+                cout << "Match Found! Price: " << best_ask->first << " Qty: " << trade_qty << endl;
+
+                od.quantity -= trade_qty;
+                best_ask->second -= trade_qty;
+
+                if (best_ask->second == 0) asks.erase(best_ask);
+            }
+            
+            if (od.quantity > 0) bids[od.price] += od.quantity;
+        } 
+        else {
+             while (od.quantity > 0 && !bids.empty() && od.price <= bids.begin()->first) {
+                auto best_bid = bids.begin();
+                uint32_t trade_qty = min(od.quantity, best_bid->second);
+                
+                cout << "Match Found! Price: " << best_bid->first << " Qty: " << trade_qty << endl;
+
+                od.quantity -= trade_qty;
+                best_bid->second -= trade_qty;
+
+                if (best_bid->second == 0) bids.erase(best_bid);
+            }
+            if (od.quantity > 0) asks[od.price] += od.quantity;
+        }
+    }
 };
 
 class Timer {};
 
+
+
 int main() {
 
-  const int num_orders = 1000000; // Let's do a MILLION orders
+  const int num_orders = 1000000; 
 
-  // ARCHITECTURE: Pre-allocate a 'Slab' of memory
-  // Using vector(size) instead of reserve to avoid the crash you had
+  
+  // Using vector(size) instead of reserve to avoid the crash 
   vector<Order> orders(num_orders);
 
   mt19937 gen(42);
   normal_distribution<double> price_dist(100.0, 5.0);
   uniform_int_distribution<uint32_t> qty_dist(1, 100);
 
-  // OPTIMIZATION: Start timing exactly before the CPU crunch
+  // Start timing exactly before the CPU crunch
   auto start = chrono::high_resolution_clock::now();
 
+  // connect this with LOB class
   for (int i = 0; i < num_orders; ++i) {
     orders[i] = {
         static_cast<uint64_t>(i), price_dist(gen), qty_dist(gen),
-        (i % 2 == 0) // Alternating Buy/Sell
+        (i % 2 == 0) // Alternating Buy & Sell
     };
   }
 
