@@ -2,6 +2,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <fstream>
 
 using namespace std;
 
@@ -33,6 +34,8 @@ private:
 
 public:
     void processOrder(Order od) {
+
+      
         if (od.is_buy) {
             while (od.quantity > 0 && !asks.empty() && od.price >= asks.begin()->first) {
                 auto best_ask = asks.begin();
@@ -40,10 +43,21 @@ public:
                 //comment out cout when testing (for performance)
                 cout << "Order Filled : " << best_ask->first << " Qty: " << trade_qty << endl;
 
+                Trade t = {
+                od.id,           // Buyer
+                0,               // Seller (0 for seller , 1 for buyer)
+                best_ask->first, // Price
+                trade_qty        // Qty
+                };
+
+                trades_occurred.push_back(t);  
+
                 od.quantity -= trade_qty;
                 best_ask->second -= trade_qty;
 
                 if (best_ask->second == 0) asks.erase(best_ask);
+
+                
             }
             
             if (od.quantity > 0) bids[od.price] += od.quantity;
@@ -55,15 +69,20 @@ public:
                 //comment out cout when testing (for performance)
                 cout << "Order filled : " << best_bid->first << " Qty: " << trade_qty << endl;
 
+                trades_occurred.push_back(t); 
+
                 od.quantity -= trade_qty;
                 best_bid->second -= trade_qty;
 
                 if (best_bid->second == 0) bids.erase(best_bid);
+
+                
             }
             if (od.quantity > 0) asks[od.price] += od.quantity;
         }
     }
 };
+
 
 class Timer {};
 
@@ -76,6 +95,9 @@ int main() {
   LimitOrderBook lob;
   
   vector<Order> orders(num_orders);
+
+  ofstream trade_file(trades.csv);
+  trade_file << "BuyerId , SellerId , Price , Quantity\n";
 
   mt19937 gen(42);
   normal_distribution<double> price_dist(100.0, 5.0);
@@ -95,6 +117,12 @@ int main() {
     };
 
     lob.processOrder(orders[i]);
+
+    vector<Trade> FilledOrders = lob.processOrder(orders[i]);
+
+    for (const auto& t : matches) {
+      trade_file << t.buyer_id << "," << t.seller_id << ","  << t.match_price << "," << t.quantity << "\n";
+    }
   }
 
   auto end = chrono::high_resolution_clock::now();
