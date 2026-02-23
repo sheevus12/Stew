@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 #include <fstream>
+#include <map>
 
 using namespace std;
 
@@ -30,9 +31,10 @@ private:
     // Sell orders aka Asks: Key is price (Ascending), Value is quantity
     map<uint64_t, uint32_t> asks; 
     // Buy orders aka Bids: Key is price (Descending), Value is quantity
-    map<uint64_t, uint32_t, greater<uint64_t>> bids; 
-
+    map<uint64_t, uint32_t, greater<uint64_t>> bids;
 public:
+    vector<Trade> trades_occurred; 
+
     void processOrder(Order od) {
 
       
@@ -49,6 +51,7 @@ public:
                 best_ask->first, // Price
                 trade_qty        // Qty
                 };
+
 
                 trades_occurred.push_back(t);  
 
@@ -68,6 +71,13 @@ public:
                 uint32_t trade_qty = min(od.quantity, best_bid->second);
                 //comment out cout when testing (for performance)
                 cout << "Order filled : " << best_bid->first << " Qty: " << trade_qty << endl;
+
+                Trade t = {
+                0,               // Buyer (0 for buyer, seller id not assigned)
+                od.id,           // Seller
+                best_bid->first, // Price
+                trade_qty        // Qty
+                };
 
                 trades_occurred.push_back(t); 
 
@@ -96,7 +106,7 @@ int main() {
   
   vector<Order> orders(num_orders);
 
-  ofstream trade_file(trades.csv);
+  ofstream trade_file("trades.csv");
   trade_file << "BuyerId , SellerId , Price , Quantity\n";
 
   mt19937 gen(42);
@@ -112,17 +122,16 @@ int main() {
     uint64_t price_in_cents = static_cast<uint64_t>(price_dist(gen) * 100);
 
     orders[i] = {
-        static_cast<uint64_t>(i), price_dist(gen), qty_dist(gen),
+        static_cast<uint64_t>(i), price_in_cents, qty_dist(gen),
         (i % 2 == 0) // Alternating Buy & Sell
     };
 
     lob.processOrder(orders[i]);
 
-    vector<Trade> FilledOrders = lob.processOrder(orders[i]);
-
-    for (const auto& t : matches) {
+    for (const auto& t : lob.trades_occurred) {
       trade_file << t.buyer_id << "," << t.seller_id << ","  << t.match_price << "," << t.quantity << "\n";
     }
+    lob.trades_occurred.clear();
   }
 
   auto end = chrono::high_resolution_clock::now();
