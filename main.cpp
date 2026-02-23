@@ -8,15 +8,15 @@ using namespace std;
 // This is your 'Order' - The heart of the LOB
 struct Order {
   uint64_t id;
-  double price;
+  uint64_t price;
   uint32_t quantity;
   bool is_buy;
 };
 struct Trade {
-    uint64_t buyer_id;
-    uint64_t seller_id;
-    double match_price;
-    uint32_t quantity;
+  uint64_t buyer_id;
+  uint64_t seller_id;
+  uint64_t match_price;
+  uint32_t quantity;
 };
 
 
@@ -27,9 +27,9 @@ class LimitOrderBook {
 private:
     // storing orders in maps
     // Sell orders aka Asks: Key is price (Ascending), Value is quantity
-    map<double, uint32_t> asks; 
+    map<uint64_t, uint32_t> asks; 
     // Buy orders aka Bids: Key is price (Descending), Value is quantity
-    map<double, uint32_t, greater<double>> bids; 
+    map<uint64_t, uint32_t, greater<uint64_t>> bids; 
 
 public:
     void processOrder(Order od) {
@@ -37,8 +37,8 @@ public:
             while (od.quantity > 0 && !asks.empty() && od.price >= asks.begin()->first) {
                 auto best_ask = asks.begin();
                 uint32_t trade_qty = min(od.quantity, best_ask->second);
-                
-                cout << "Match Found! Price: " << best_ask->first << " Qty: " << trade_qty << endl;
+                //comment out cout when testing (for performance)
+                cout << "Order Filled : " << best_ask->first << " Qty: " << trade_qty << endl;
 
                 od.quantity -= trade_qty;
                 best_ask->second -= trade_qty;
@@ -52,8 +52,8 @@ public:
              while (od.quantity > 0 && !bids.empty() && od.price <= bids.begin()->first) {
                 auto best_bid = bids.begin();
                 uint32_t trade_qty = min(od.quantity, best_bid->second);
-                
-                cout << "Match Found! Price: " << best_bid->first << " Qty: " << trade_qty << endl;
+                //comment out cout when testing (for performance)
+                cout << "Order filled : " << best_bid->first << " Qty: " << trade_qty << endl;
 
                 od.quantity -= trade_qty;
                 best_bid->second -= trade_qty;
@@ -73,8 +73,8 @@ int main() {
 
   const int num_orders = 1000000; 
 
+  LimitOrderBook lob;
   
-  // Using vector(size) instead of reserve to avoid the crash 
   vector<Order> orders(num_orders);
 
   mt19937 gen(42);
@@ -86,10 +86,15 @@ int main() {
 
   // connect this with LOB class
   for (int i = 0; i < num_orders; ++i) {
+    
+    uint64_t price_in_cents = static_cast<uint64_t>(price_dist(gen) * 100);
+
     orders[i] = {
         static_cast<uint64_t>(i), price_dist(gen), qty_dist(gen),
         (i % 2 == 0) // Alternating Buy & Sell
     };
+
+    lob.processOrder(orders[i]);
   }
 
   auto end = chrono::high_resolution_clock::now();
