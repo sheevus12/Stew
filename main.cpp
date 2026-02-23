@@ -7,7 +7,7 @@
 
 using namespace std;
 
-// This is your 'Order' - The heart of the LOB
+
 struct Order {
   uint64_t id;
   uint64_t price;
